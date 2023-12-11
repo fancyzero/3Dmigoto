@@ -780,7 +780,9 @@ static UINT64 fnv_64_buf(const void *buf, size_t len)
 		// xor the bottom with the current octet
 		hval ^= (UINT64)*bp++;
     }
+	LogInfo("%I64x", hval);
 	return hval;
+	
 }
 
 

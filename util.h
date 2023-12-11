@@ -125,6 +125,7 @@ static UINT64 fnv_64_buf(const void *buf, size_t len)
 		hval ^= (UINT64)*bp++;
 	}
 	return hval;
+	
 }
 
 

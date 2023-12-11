@@ -35,6 +35,12 @@
 #include "CommandList.h"
 #include "Hunting.h"
 
+
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <windows.h>
+
 // A map to look up the HackerDevice from an IUnknown. The reason for using an
 // IUnknown as the key is that an ID3D11Device and IDXGIDevice are actually two
 // different interfaces to the same object, which means that QueryInterface()
@@ -2505,12 +2511,12 @@ static UINT64 hash_shader(const void *pShaderBytecode, SIZE_T BytecodeLength)
 
 	if (BytecodeLength < sizeof(struct dxbc_header))
 		goto fnv;
-
 	switch (G->shader_hash_type) {
 		case ShaderHashType::FNV:
 fnv:
-			hash = fnv_64_buf(pShaderBytecode, BytecodeLength);
+			hash = fnv_64_buf(pShaderBytecode, BytecodeLength);		
 			LogInfo("       FNV hash = %016I64x\n", hash);
+			std::cout << std::hex << hash << std::endl;
 			break;
 
 		case ShaderHashType::EMBEDDED:
@@ -2538,6 +2544,10 @@ fnv:
 	return hash;
 }
 
+bool fileExists(const std::wstring& filename) {
+	DWORD attributes = GetFileAttributesW(filename.c_str());
+	return (attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY));
+}
 
 // C++ function template of common code shared by all CreateXXXShader functions:
 template <class ID3D11Shader,
@@ -2567,8 +2577,17 @@ STDMETHODIMP HackerDevice::CreateShader(THIS_
 	}
 
 	// Calculate hash
+	;
 	hash = hash_shader(pShaderBytecode, BytecodeLength);
 
+	std::wstringstream filenameStream;
+	filenameStream << L"d:\\yuanps\\" << shaderType << L"_" << std::hex << hash << L".dxbc";
+
+	std::wstring filename = filenameStream.str();
+	if (fileExists(filename)) 
+	{
+		saveBufferToFile((const char*)pShaderBytecode, BytecodeLength, filename);
+	}
 	hr = ReplaceShaderFromShaderFixes<ID3D11Shader, OrigCreateShader>
 		(hash, pShaderBytecode, BytecodeLength, pClassLinkage,
 		 ppShader, shaderType);
@@ -2655,6 +2674,28 @@ STDMETHODIMP HackerDevice::CreateGeometryShaderWithStreamOutput(THIS_
 	return hr;
 }
 
+
+// Function to save a buffer to a binary file with an increasing index in the filename
+void saveBufferToFile(const char* buffer, size_t bufferSize, const std::wstring& filename) {
+	// Open the file for binary writing
+	std::ofstream file(filename, std::ios::binary);
+
+	if (file.is_open()) {
+		// Write the buffer to the file
+		file.write(buffer, bufferSize);
+
+		// Close the file
+		file.close();
+
+		std::wcout << "File saved: " << filename << std::endl;
+	}
+	else {
+		std::wcerr << "Error: Unable to open file for writing - " << filename << std::endl;
+	}
+}
+
+static int ps_count = 0;
+
 STDMETHODIMP HackerDevice::CreatePixelShader(THIS_
 	/* [annotation] */
 	__in  const void *pShaderBytecode,
@@ -2667,8 +2708,11 @@ STDMETHODIMP HackerDevice::CreatePixelShader(THIS_
 {
 	LogInfo("HackerDevice::CreatePixelShader called with BytecodeLength = %Iu, handle = %p, ClassLinkage = %p\n", BytecodeLength, pShaderBytecode, pClassLinkage);
 
+
 	return CreateShader<ID3D11PixelShader, &ID3D11Device::CreatePixelShader>
 			(pShaderBytecode, BytecodeLength, pClassLinkage, ppPixelShader, L"ps");
+
+
 }
 
 STDMETHODIMP HackerDevice::CreateHullShader(THIS_
